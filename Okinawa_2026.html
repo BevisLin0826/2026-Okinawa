@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>沖繩自駕導航助理 V11.0</title>
+    <style>
+        /* =========================================
+           1. 顏色變數與 Apple 視覺重置 (macOS Sequoia 風格)
+           ========================================= */
+        :root {
+            --primary: #0A84FF;         /* 蘋果藍 */
+            --primary-light: #30B0C7;   /* 沖繩海洋青 */
+            --secondary: #34C759;       /* 蘋果綠 */
+            --accent: #FF9500;          /* 溫暖橘 */
+            --transit: #147EFB;         /* 大眾運輸藍 */
+            --taxi: #FFCC00;            /* 警告/計程車黃 */
+            --bg: #F2F2F7;              /* iOS 淺灰背景 */
+            --card: rgba(255, 255, 255, 0.7); /* 磨砂玻璃卡片背景 */
+            --timeline-line: rgba(10, 132, 255, 0.2);
+            --text-dark: #1D1D1F;       /* 蘋果深黑 */
+            --text-muted: #86868B;      /* 蘋果灰 */
+        }
+
+        * { 
+            box-sizing: border-box; 
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro SC", "PingFang TC", "Microsoft JhengHei", sans-serif; 
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body { 
+            margin: 0; 
+            background: var(--bg); 
+            background-image: radial-gradient(at 0% 0%, rgba(48, 176, 199, 0.15) 0, transparent 50%),
+                              radial-gradient(at 100% 100%, rgba(10, 132, 255, 0.1) 0, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-dark); 
+            padding-bottom: 80px; 
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* =========================================
+           2. macOS 頂部視窗控制區與標題 (macOS Header)
+           ========================================= */
+        .mac-window {
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(20px) saturate(190%);
+            -webkit-backdrop-filter: blur(20px) saturate(190%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 55px 20px 25px;
+            text-align: center;
+            border-bottom-left-radius: 30px; 
+            border-bottom-right-radius: 30px;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        }
+
+        /* macOS 經典視窗三色鈕 */
+        .mac-dots {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .mac-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .mac-dot.red { background: #FF5F56; }
+        .mac-dot.yellow { background: #FFBD2E; }
+        .mac-dot.green { background: #27C93F; }
+
+        .mac-address-bar {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.6);
+            border: 0.5px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 4px 20px;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            pointer-events: none;
+            display: inline-block;
+        }
+
+        .app-title { 
+            font-size: 26px; 
+            font-weight: 800; 
+            letter-spacing: -0.5px; 
+            margin: 10px 0 0 0; 
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .app-subtitle { 
+            font-size: 12px; 
+            color: var(--text-muted); 
+            margin-top: 6px; 
+            display: block; 
+            font-weight: 600;
+        }
+
+        /* =========================================
+           3. 天數導航列 (iOS Segmented Control)
+           ========================================= */
+        .day-nav {
+            display: flex; 
+            justify-content: space-between;
+            margin: -20px 15px 15px; 
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(30px) saturate(200%);
+            -webkit-backdrop-filter: blur(30px) saturate(200%);
+            border-radius: 16px;
+            padding: 4px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            position: relative; 
+            z-index: 100;
+        }
+
+        .day-nav button {
+            flex: 1; 
+            border: none; 
+            background: none; 
+            padding: 10px 5px;
+            font-weight: 700; 
+            color: var(--text-muted); 
+            font-size: 13px;
+            transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+            border-radius: 12px; 
+            cursor: pointer;
+        }
+
+        .day-nav button.active {
+            color: #FFFFFF; 
+            background: var(--primary);
+            box-shadow: 0 4px 12px rgba(10, 132, 255, 0.3);
+            transform: scale(1.02);
+        }
+
+        /* =========================================
+           4. 快捷工具列 (iOS App Grid Layout)
+           ========================================= */
+        .tool-bar { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            padding: 5px 15px 20px; 
+            gap: 10px; 
+        }
+
+        .tool-btn {
+            padding: 12px 6px; 
+            border-radius: 16px; 
+            border: 1px solid rgba(255,255,255,0.4);
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            font-size: 12px; 
+            font-weight: 700; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            justify-content: center; 
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .tool-btn:active {
+            transform: scale(0.94);
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        /* 連結與標籤 */
+        .link-btn {
+            display: inline-flex; 
+            align-items: center; 
+            gap: 4px;
+            background: rgba(10, 132, 255, 0.08); 
+            color: var(--primary); 
+            border: 1px solid rgba(10, 132, 255, 0.15);
+            padding: 6px 12px; 
+            border-radius: 8px; 
+            font-size: 11px; 
+            font-weight: 700; 
+            margin-top: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .link-btn:active { background: rgba(10, 132, 255, 0.2); }
+
+        .price-tag {
+            font-size: 11px; 
+            color: var(--accent); 
+            font-weight: bold; 
+            background: rgba(255, 149, 0, 0.1);
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            margin-left: 5px;
+        }
+
+        /* =========================================
+           5. 行程時間軸 (Apple Timeline & Smooth Cards)
+           ========================================= */
+        .day-main-title { 
+            padding: 0 25px; 
+            margin: 15px 0 5px; 
+            font-size: 20px; 
+            font-weight: 800; 
+            color: var(--text-dark); 
+            line-height: 1.4; 
+            letter-spacing: -0.5px;
+        }
+
+        .timeline-container { 
+            padding: 10px 15px 30px; 
+            position: relative; 
+        }
+        
+        .timeline-line { 
+            position: absolute; 
+            left: 30px; 
+            top: 20px; 
+            bottom: 0; 
+            width: 2px; 
+            background: var(--timeline-line); 
+            z-index: 1; 
+        }
+        
+        .timeline-node { 
+            position: relative; 
+            padding-left: 50px; 
+            margin-bottom: 30px; 
+            z-index: 2; 
+        }
+        
+        /* 節點載入動畫 */
+        .fade-slide-in {
+            animation: appleSlideIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes appleSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .node-dot { 
+            position: absolute; 
+            left: 10px; 
+            top: 6px; 
+            width: 14px; 
+            height: 14px; 
+            background: #FFFFFF; 
+            border: 3.5px solid var(--primary); 
+            border-radius: 50%; 
+            box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.15); 
+        }
+
+        .node-time { 
+            font-size: 13px; 
+            font-weight: 800; 
+            color: var(--primary); 
+            margin-bottom: 6px; 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+            letter-spacing: 0.5px;
+        }
+
+        /* 經典 Apple 磨砂卡片 */
+        .card { 
+            background: var(--card); 
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: 20px; 
+            padding: 18px; 
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04); 
+            border: 1px solid rgba(255, 255, 255, 0.4); 
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        .guide-box { 
+            background: rgba(255, 149, 0, 0.06); 
+            border-left: 4px solid var(--accent); 
+            padding: 12px 14px; 
+            font-size: 13px; 
+            line-height: 1.6; 
+            margin: 12px 0; 
+            border-radius: 8px; 
+            color: #48484A; 
+        }
+        
+        /* 交通資訊特化 */
+        .trans-divider { margin: 15px 0 25px 50px; }
+        .trans-card { 
+            background: rgba(255,255,255,0.4); 
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 16px; 
+            padding: 14px; 
+            font-size: 13px; 
+            border: 1px solid rgba(255,255,255,0.3); 
+        }
+        .trans-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+        .trans-row:last-child { margin-bottom: 0; }
+        .trans-icon { font-size: 16px; width: 24px; text-align: center; }
+        .trans-text { flex: 1; line-height: 1.5; color: #3A3A3C; }
+        
+        .map-btn {
+            display: inline-flex; 
+            align-items: center; 
+            gap: 4px;
+            background: rgba(10, 132, 255, 0.06); 
+            color: var(--primary); 
+            border: none;
+            padding: 6px 12px; 
+            border-radius: 8px; 
+            font-size: 11px; 
+            font-weight: 700; 
+            margin-top: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .map-btn:active { background: rgba(10, 132, 255, 0.15); }
+
+        /* =========================================
+           6. 餐廳水平滑動卡片 (Carousel Selection)
+           ========================================= */
+        .dining-wrap { 
+            display: flex; 
+            overflow-x: auto; 
+            gap: 14px; 
+            padding: 8px 0; 
+            scroll-snap-type: x mandatory; 
+            scrollbar-width: none; /* 隱藏 Firefox 捲軸 */
+        }
+
+        .dining-wrap::-webkit-scrollbar { display: none; } /* 隱藏 Chrome 捲軸 */
+
+        .dining-card { 
+            flex: 0 0 88%; 
+            background: var(--card); 
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: 18px; 
+            padding: 18px; 
+            border: 1px solid rgba(255,255,255,0.4); 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.03); 
+            scroll-snap-align: start; 
+        }
+        
+        /* 蘋果推薦首選金黃點綴 */
+        .primary-choice { 
+            background: rgba(255, 253, 240, 0.85) !important; 
+            border: 1.5px solid rgba(255, 149, 0, 0.4) !important; 
+            box-shadow: 0 8px 24px rgba(255, 149, 0, 0.08); 
+        }
+        .primary-tag { 
+            background: var(--accent); 
+            color: white; 
+            padding: 2px 8px; 
+            border-radius: 6px; 
+            font-size: 10px; 
+            font-weight: 800; 
+            margin-bottom: 6px; 
+            display: inline-block; 
+            letter-spacing: 0.5px;
+        }
+        .backup-tag { 
+            background: var(--text-muted); 
+            color: white; 
+            padding: 2px 8px; 
+            border-radius: 6px; 
+            font-size: 10px; 
+            font-weight: 800; 
+            margin-bottom: 6px; 
+            display: inline-block; 
+            letter-spacing: 0.5px;
+        }
+        
+        /* 分區色彩標記 */
+        .card-south { border-left: 5px solid var(--primary-light) !important; }
+        .card-central { border-left: 5px solid var(--secondary) !important; }
+        .card-naha { border-left: 5px solid #AF52DE !important; } /* 蘋果紫 */
+
+        .region-badge { 
+            display: inline-block; 
+            padding: 2px 8px; 
+            border-radius: 6px; 
+            font-size: 10px; 
+            color: white; 
+            font-weight: 800; 
+            margin-bottom: 6px; 
+        }
+        .badge-south { background-color: var(--primary-light); }
+        .badge-central { background-color: var(--secondary); }
+        .badge-naha { background-color: #AF52DE; }
+        
+        .menu-pill { 
+            display: inline-block; 
+            background: rgba(10, 132, 255, 0.08); 
+            color: var(--primary); 
+            font-size: 11px; 
+            font-weight: 800; 
+            padding: 4px 10px; 
+            border-radius: 8px; 
+            margin-top: 10px; 
+        }
+
+        /* =========================================
+           7. 彈出模組 (iOS Native Sheet Drawers) & Toast
+           ========================================= */
+        .modal { 
+            position: fixed; 
+            inset: 0;
+            top: 45px; /* 保留頂部空白，呈現 iOS Sheet 卡片拉起效果 */
+            background: rgba(255, 255, 255, 0.88); 
+            backdrop-filter: blur(35px) saturate(190%);
+            -webkit-backdrop-filter: blur(35px) saturate(190%);
+            z-index: 2000; 
+            display: none; 
+            padding: 40px 20px 60px; 
+            overflow-y: auto; 
+            border-top-left-radius: 24px;
+            border-top-right-radius: 24px;
+            box-shadow: 0 -15px 40px rgba(0, 0, 0, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Modal 出現時的觸發狀態 */
+        .modal.active {
+            display: block;
+            transform: translateY(0);
+        }
+
+        /* iOS 下拉指示條 */
+        .modal-handle {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 36px;
+            height: 5px;
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 2.5px;
+        }
+
+        .close-x { 
+            position: fixed; 
+            top: 65px; 
+            right: 25px; 
+            font-size: 22px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            color: var(--text-muted); 
+            background: rgba(0,0,0,0.05);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2001;
+        }
+        
+        .sos-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        
+        /* 複製成功提示框 (iOS Style Notification) */
+        #toast { 
+            position: fixed; 
+            top: 30px; 
+            left: 50%; 
+            transform: translateX(-50%) translateY(-50px); 
+            background: rgba(0, 0, 0, 0.75); 
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            color: white; 
+            padding: 10px 24px; 
+            border-radius: 20px; 
+            font-size: 13px; 
+            font-weight: 600;
+            display: none; 
+            z-index: 3000; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #toast.show {
+            display: block;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* 補貨清單分類標籤 */
+        .shop-cat-header {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--text-muted);
+            margin: 20px 0 10px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            border-left: 3px solid var(--primary);
+            padding-left: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="mac-window">
+        <div class="mac-dots">
+            <span class="mac-dot red"></span>
+            <span class="mac-dot yellow"></span>
+            <span class="mac-dot green"></span>
+        </div>
+        <div class="mac-address-bar">okinawa-slow-travel-2026.app</div>
+        <h1 class="app-title">OKINAWA RESORT</h1>
+        <span class="app-subtitle">🌺 2026 沖繩消暑慢活．親子度假自駕遊 V11.0</span>
+    </div>
+
+    <div class="day-nav" id="dayNav">
+        <button onclick="render(1)" class="active">DAY 1</button>
+        <button onclick="render(2)">DAY 2</button>
+        <button onclick="render(3)">DAY 3</button>
+        <button onclick="render(4)">DAY 4</button>
+        <button onclick="render(5)">DAY 5</button>
+    </div>
+
+    <div class="tool-bar">
+        <button class="tool-btn" onclick="showModal('care')">🚫 自駕安撫</button>
+        <button class="tool-btn" onclick="showModal('housing')">🏡 民宿租車</button>
+        <button class="tool-btn" onclick="showModal('shopping')" style="background:rgba(10, 132, 255, 0.05); border:1px solid rgba(10,132,255,0.15);">🛒 補貨清單</button>	
+        <button class="tool-btn" onclick="showModal('food')" style="background:rgba(255, 149, 0, 0.05); border:1px solid rgba(255,149,0,0.15);">🍱 美食地圖</button>
+        <button class="tool-btn" onclick="showModal('kids')" style="background:rgba(52, 199, 89, 0.05); border:1px solid rgba(52,199,89,0.15);">⚡ 育兒放電</button>
+        <button class="tool-btn" onclick="showModal('sos')" style="color:#FF3B30">🆘 道路求助</button>
+    </div>
+
+    <div id="dayTitleContainer"></div>
+    <div class="timeline-container">
+        <div class="timeline-line"></div>
+        <div id="timelineContent"></div>
+    </div>
+
+    <div id="care-modal" class="modal">
+        <div class="modal-handle"></div>
+        <span class="close-x" onclick="hideModal('care')">✕</span>
+        <h2 style="color:var(--text-dark); margin-bottom: 25px; font-weight: 800;">🚫 自駕＆帶娃安全小叮嚀</h2>
+        
+        <div class="guide-box">
+            <strong>👶 安全座椅點交 (OTS 取車必核對)</strong><br>
+            報到時務必核對：<br>
+            1. 兒童安全座椅（快4歲球球用）<br>
+            2. 嬰兒安全座椅（1.5歲點點用）
+        </div>
+        
+        <div class="guide-box">
+            <strong>🛒 世豊商店：高效率「戰鬥採購戰術」</strong><br>
+            世豊商店內空間極為狹窄。建議由<b>媽媽一人持採購清單進入掃貨</b>；<b>爸爸帶球球與點點在店外看大石獅子散步</b>，安全又不會造成店內擁擠。
+        </div>
+
+        <div class="guide-box">
+            <strong>🍜 寶寶安心飲食推薦</strong><br>
+            - 烏龍麵剪碎：IIAS 3F 的丸龜製麵/樂庵烏龍麵（Day 2 中午），高湯烏龍麵剪碎分食最省心。<br>
+            - 入口即化軟骨：那霸蕎麥麵 EIBUN（Day 4 中午）的柴魚昆布湯頭清甜、炙燒軟骨超軟嫩，適合1.5歲點點！
+        </div>
+    </div>
+
+    <div id="housing-modal" class="modal" style="top: 45px;">
+        <div class="modal-handle"></div>
+        <span class="close-x" onclick="hideModal('housing')">✕</span>
+        <h2 style="color:var(--primary); margin-bottom: 5px; font-weight: 800;">🚗 住宿、租車與自駕停車專區</h2>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:20px;">林家專屬：民宿資訊、還車流與每日景點精準停車指南</p>
+
+        <div class="card" style="margin-bottom: 15px; border-left: 5px solid var(--primary);">
+            <p style="margin-top:0"><strong>🏡 Airbnb 住宿資訊：</strong><br>TerraceRin (位於豐見城市 米區)</p>
+            <p onclick="copy('197 Yone TerraceRin, Tomigusuku-shi, Okinawa-ken 901-0224')">📍 <span style="text-decoration: underline; color: var(--primary);">197 Yone TerraceRin, Tomigusuku-shi, Okinawa-ken 901-0224</span> 📋</p>
+            <small style="color:var(--text-muted); display:block; margin-bottom:8px;">★ 門口附有專屬「免費停車位」，進出免找位子。</small>
+            <button class="map-btn" onclick="openMap('197 Yone TerraceRin, Tomigusuku-shi, Okinawa-ken 901-0224')" style="width:100%; background:var(--primary); color:#fff; border:none; padding:8px; border-radius:6px; font-weight:700; cursor:pointer;">🗺️ 導航回 Airbnb 民宿</button>
+        </div>
+
+        <div class="card" style="margin-bottom: 25px; border-left: 5px solid var(--primary-light);">
+            <p style="margin-top:0"><strong>🚗 租車公司：</strong><br>OTS 臨空豐崎營業所</p>
+            <p onclick="copy('OTS Rent-a-car Rinku Toyosaki')">📍 <span style="text-decoration: underline; color: var(--primary);">OTS Rent-a-car Rinku Toyosaki</span> 📋</p>
+            <small style="color:var(--text-muted); display:block; margin-bottom:8px;">★ 還車前記得在豐崎營業所旁的加油站將油箱「加滿」並保留收據。</small>
+            <button class="map-btn" onclick="openMap('OTS Rent-a-car Rinku Toyosaki')" style="width:100%; background:var(--primary-light); color:#fff; border:none; padding:8px; border-radius:6px; font-weight:700; cursor:pointer;">🗺️ 導航至 OTS 豐崎營業所</button>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid rgba(0,0,0,0.1); margin-bottom: 20px;">
+
+        <h3 style="font-weight: 800; font-size: 16px; margin-bottom: 15px; color: var(--text-dark); display: flex; align-items: center; gap: 6px;">
+            🅿️ 每日景點停車攻略
+        </h3>
+
+        <div class="card" style="margin-bottom: 15px; border-top: 4px solid var(--primary-light); background: rgba(255, 142, 142, 0.02);">
+            <h4 style="margin: 0 0 10px 0; color:var(--primary-light);">📅 DAY 2 停車 (南區慢活)</h4>
+            
+            <div style="margin-bottom:15px;">
+                <strong style="font-size:13px; display:block;">🛒 IIAS 豐崎 / DMM水族館 / Outlet</strong>
+                <div style="font-size:12px; color:#444; margin-top:2px; margin-bottom:6px;">
+                    • 停車場：商場超大平面與立體停車場 (3,000車位)<br>
+                    • <b>費用：免費 (FREE)</b><br>
+                    • 小提示：無痛直通水族館與逛街區，推車可一路暢行。
+                </div>
+                <button class="map-btn" onclick="openMap('iias 沖繩豐崎')" style="width:100%; background:#fff; color:var(--primary-light); border:1px solid var(--primary-light); padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">🗺️ 導航至 IIAS 豐崎停車場</button>
+            </div>
+
+            <div style="margin-bottom:15px;">
+                <strong style="font-size:13px; display:block;">🏖️ 美麗SUN海灘 (Chura SUN Beach)</strong>
+                <div style="font-size:12px; color:#444; margin-top:2px; margin-bottom:6px;">
+                    • 停車場：指名導航停在<b>「北側停車場」</b><br>
+                    • <b>費用：200日圓/小時 (單日上限 500日圓)</b> ※前10分鐘免費<br>
+                    • 小提示：北側停車場路面平整，雙人推車可以直接嚕到沙灘涼亭，免扛車！
+                </div>
+                <button class="map-btn" onclick="openMap('美らSUNビーチ 北駐車場')" style="width:100%; background:#fff; color:var(--primary-light); border:1px solid var(--primary-light); padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">🗺️ 導航至 海灘北側停車場</button>
+            </div>
+
+            <div>
+                <strong style="font-size:13px; display:block;">🐟 系滿漁民食堂</strong>
+                <div style="font-size:12px; color:#444; margin-top:2px; margin-bottom:6px;">
+                    • 停車場：餐廳店門口附設專屬平面停車場<br>
+                    • <b>費用：免費 (FREE)</b><br>
+                    • 小提示：座位有限，建議晚餐一開門就到，好停又不用排隊。
+                </div>
+                <button class="map-btn" onclick="openMap('糸満漁民食堂')" style="width:100%; background:#fff; color:var(--primary-light); border:1px solid var(--primary-light); padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">🗺️ 導航至 系滿漁民食堂</button>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 15px; border-top: 4px solid var(--secondary); background: rgba(78, 205, 196, 0.02);">
+            <h4 style="margin: 0 0 10px 0; color:var(--secondary);">📅 DAY 3 停車 (中區自駕)</h4>
+            
+            <div style="margin-bottom:15px;">
+                <strong style="font-size:13px; display:block;">🦒 沖繩動物王國 / 海族工房</strong>
+                <div style="font-size:12px; color:#444; margin-top:2px; margin-bottom:6px;">
+                    • 停車場：指名導航停在<b>「東門停車場」</b><br>
+                    • <b>費用：免費 (FREE)</b><br>
+                    • 小提示：距離動物園入口與海族工房餐廳最近，推車最省力。
+                </div>
+                <button class="map-btn" onclick="openMap('沖縄こどもの国 東門駐車場')" style="width:100%; background:#fff; color:var(--secondary); border:1px solid var(--secondary); padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">🗺️ 導航至 動物園東門停車場</button>
+            </div>
+
+            <div style="margin-bottom:15px;">
+                <strong style="font-size:13px; display:block;">🛍️ 永旺夢樂城來客夢 (Rycom)</strong>
+                <div style="font-size:12px; color:#444; margin-top:2px; margin-bottom:6px;">
+                    • 停車場：商場超大立體與露天停車場 (4,000車位)<br>
+                    • <b>費用：免費 (FREE)</b><br>
+                    • 小提示：推車直達梯充足，室內停車場夏天最涼爽，不怕曬。
+                </div>
+                <button class="map-btn" onclick="openMap('AEON Mall Rycom')" style="width:100%; background:#fff; color:var(--secondary); border:1px solid var(--secondary); padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">🗺️ 導航至 AEON 來客夢</button>
+            </div>
+
+            <div>
+                <strong style="font-size:13px; display:block;">👶 Birthday 母嬰用品店 (港川店)</strong>
+                <div style="font-size:12px; color:#444; margin-top:2px; margin-bottom:6px;">
+                    • 停車場：門市前專用大平面停車場<br>
+                    • <b>費用：免費 (FREE)</b><br>
+                    • 小提示：有遮陽頂，下雨、日曬都能輕鬆把滿滿戰利品搬上車。
+                </div>
+                <button class="map-btn" onclick="openMap('バースデイ 港川店')" style="width:100%; background:#fff; color:var(--secondary); border:1px solid var(--secondary); padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">🗺️ 導航至 Birthday 港川店</button>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 15px; border-top: 4px solid #AF52DE; background: rgba(175, 82, 222, 0.02);">
+            <h4 style="margin: 0 0 10px 0; color:#AF52DE;">📅 DAY 4 停車 (那霸/奧武島)</h4>
+            
+            <div style="margin-bottom:15px;">
+                <strong style="font-size:13px; display:block;">🚢 ORCA 水中觀光船</strong>
+                <div style="font-size:12px; color:#444; margin-top:2px; margin-bottom:6px;">
+                    • 停車場：那霸埠頭客運大樓付費停車場<br>
+                    • <b>費用：200日圓/小時</b><br>
+                    • 小提示：就在搭船處正前方，買完票直接走去登船，省時省力。
+                </div>
+                <button class="map-btn" onclick="openMap('那覇ふ頭船客待合所')" style="width:100%; background:#fff; color:#AF52DE; border:1px solid #AF52DE; padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">🗺️ 導航至 那霸埠頭停車場</button>
+            </div>
+
+            <div style="margin-bottom:15px;">
+                <strong style="font-size:13px; display:block;">🛍️ 世豐商店 / 牧志公設市場周邊</strong>
+                <div style="font-size:12px; color:#444; margin-top:2px; margin-bottom:6px;">
+                    • 停車場：鄰近投幣式停車場「三井のリパーク 那覇市壺屋１丁目」<br>
+                    • <b>費用：約 200日圓 / 20分鐘</b><br>
+                    • 小提示：周邊多單行道。大推停在外圍大馬路的 Times，爸爸在車上顧小孩，媽媽單兵進去掃貨。
+                </div>
+                <button class="map-btn" onclick="openMap('三井のリパーク 那覇市壺屋１丁目')" style="width:100%; background:#fff; color:#AF52DE; border:1px solid #AF52DE; padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">🗺️ 導航至 壺屋1丁目特選停車場</button>
+            </div>
+
+            <div style="margin-bottom:15px;">
+                <strong style="font-size:13px; display:block;">🐈 奧武島 (中本鮮魚天婦羅)</strong>
+                <div style="font-size:12px; color:#444; margin-top:2px; margin-bottom:6px;">
+                    • 停車場：店門前專屬空地，或過橋後左轉公共免費停車場<br>
+                    • <b>費用：免費 (FREE)</b><br>
+                    • 小提示：過橋路面稍窄，小心行人與慵懶的島貓。
+                </div>
+                <button class="map-btn" onclick="openMap('中本鮮魚店')" style="width:100%; background:#fff; color:#AF52DE; border:1px solid #AF52DE; padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">🗺️ 導航至 中本鮮魚店(奧武島)</button>
+            </div>
+
+            <div style="margin-bottom:15px;">
+                <strong style="font-size:13px; display:block;">🥩 敘敘苑 (那霸新都心店)</strong>
+                <div style="font-size:12px; color:#444; margin-top:2px; margin-bottom:6px;">
+                    • 停車場：Lucafu 大樓無車位，推薦停隔壁「TSUTAYA那霸新都心店」付費停車場<br>
+                    • <b>費用：約 220日圓/小時</b> (可詢問敘敘苑店員是否有折抵券)<br>
+                    • 小提示：吃飽可順便帶小孩逛一下 TSUTAYA 書店。
+                </div>
+                <button class="map-btn" onclick="openMap('TSUTAYA 那覇新都心店')" style="width:100%; background:#fff; color:#AF52DE; border:1px solid #AF52DE; padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">🗺️ 導航至 TSUTAYA 鄰近停車場</button>
+            </div>
+
+            <div>
+                <strong style="font-size:13px; display:block;">🏮 目利きの銀次 (新都心店)</strong>
+                <div style="font-size:12px; color:#444; margin-top:2px; margin-bottom:6px;">
+                    • 停車場：餐廳附屬專用「第二停車場」(認明「生け簀の銀次」招牌)<br>
+                    • <b>費用：免費 (FREE)</b><br>
+                    • 小提示：停車位位於餐廳後方小巷內，若滿位可導航至附近 Times 投幣式停車場。
+                </div>
+                <button class="map-btn" onclick="openMap('目利きの銀次 新都心店')" style="width:100%; background:#fff; color:#AF52DE; border:1px solid #AF52DE; padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">🗺️ 導航至 目利きの銀次</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="shopping-modal" class="modal">
+        <div class="modal-handle"></div>
+        <span class="close-x" onclick="hideModal('shopping')">✕</span>
+        <h2 style="color:var(--primary); margin-bottom: 5px; font-weight: 800;">🛒 沖繩自駕補貨＆血拼導航</h2>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:20px;">已為您規劃最順路的沖繩人氣店家 Google Maps 實用資訊</p>
+
+        <div class="shop-cat-header">🌺 沖繩在地明星特產</div>
+
+        <div class="card" style="margin-bottom:15px; border-left: 5px solid var(--accent);">
+            <p style="margin:0 0 5px 0;"><strong>🛍️ 世豊商店 (那霸壺屋)</strong> <span class="price-tag">Day 4 最順路</span></p>
+            <small style="color:var(--text-muted); display:block; line-height:1.4;">沖繩最紅零食乾貨店！阿姨講台語超親切。必買沖繩萬能辣油、雪肌粹防曬、平價名產、蒟蒻果凍。</small>
+            <button class="map-btn" onclick="openMap('世豊商店')">🗺️ 一鍵導航</button>
+        </div>
+
+        <div class="card" style="margin-bottom:15px; border-left: 5px solid var(--accent);">
+            <p style="margin:0 0 5px 0;"><strong>🏵️ 沖繩媳婦 (那霸曙區)</strong> <span class="price-tag">Day 4 最順路</span></p>
+            <small style="color:var(--text-muted); display:block; line-height:1.4;">熱門最新限定零食、質感文創飾品與特色土產。店員非常友善親切。</small>
+            <button class="map-btn" onclick="openMap('沖繩媳婦')">🗺️ 一鍵導航</button>
+        </div>
+
+        <div class="shop-cat-header">👶 母嬰、運動與戶外服飾</div>
+
+        <div class="card" style="margin-bottom:15px; border-left: 5px solid var(--primary-light);">
+            <p style="margin:0 0 5px 0;"><strong>👶 Birthday 母嬰用品店 (港川店)</strong> <span class="price-tag">Day 3 或 4 順路</span></p>
+            <small style="color:var(--text-muted); display:block; line-height:1.4;">日本最強大平價童裝！衣服極具設計質感，比西松屋好看、比阿卡將便宜。強烈推薦自創品牌「futafuta」、「tete a tete」，超大室內免費停車場不怕日曬雨淋。</small>
+            <button class="map-btn" onclick="openMap('バースデイ 港川店')">🗺️ 一鍵導航</button>
+        </div>
+
+        <div class="card" style="margin-bottom:15px; border-left: 5px solid var(--primary-light);">
+            <p style="margin:0 0 5px 0;"><strong>👚 Workman Girl (永旺來客夢店)</strong> <span class="price-tag">Day 3 順路</span></p>
+            <small style="color:var(--text-muted); display:block; line-height:1.4;">日本當紅神店！主打超高機能性、防潑水、耐髒、抗 UV 的男女戶外與休閒服。非常適合帶孩子戶外活動時穿（也有販售防滑童鞋與防水外套）。</small>
+            <button class="map-btn" onclick="openMap('ワークマン女子 イオンモール沖縄ライカム店')">🗺️ 一鍵導航</button>
+        </div>
+
+        <div class="card" style="margin-bottom:15px; border-left: 5px solid var(--primary-light);">
+            <p style="margin:0 0 5px 0;"><strong>👟 Sport Depo 運動大賣場 (豐崎店)</strong> <span class="price-tag">Day 2 順路</span></p>
+            <small style="color:var(--text-muted); display:block; line-height:1.4;">大型體育運動量販倉庫，位於民宿與 OTS 旁的 TOMITON 1樓。玩水用的專業防曬衣、運動球鞋、露營及水上配件極其齊全，出示外國優惠券還可免稅+折扣。</small>
+            <button class="map-btn" onclick="openMap('スポーツデポ 豊崎店')">🗺️ 一鍵導航</button>
+        </div>
+
+        <div class="shop-cat-header">🪵 高顏值日用與百元生活雜貨</div>
+
+        <div class="card" style="margin-bottom:15px; border-left: 5px solid var(--secondary);">
+            <p style="margin:0 0 5px 0;"><strong>🧸 3 Coins (3COINS+plus 來客夢店)</strong> <span class="price-tag">Day 3 順路</span></p>
+            <small style="color:var(--text-muted); display:block; line-height:1.4;">300日圓設計生活雜貨，位於來客夢 1F。這裡極推其專門為幼兒設計的木質玩具、洗澡水槍、極美的沙灘挖沙桶，質感極佳，買來放電最合適！</small>
+            <button class="map-btn" onclick="openMap('3COINS plus イオンモール沖縄ライカム店')">🗺️ 一鍵導航</button>
+        </div>
+
+        <div class="card" style="margin-bottom:15px; border-left: 5px solid var(--secondary);">
+            <p style="margin:0 0 5px 0;"><strong>🪵 Standard Products (豐崎 TOMITON 店)</strong> <span class="price-tag">Day 2 最順路</span></p>
+            <small style="color:var(--text-muted); display:block; line-height:1.4;">大創旗下的高質感副牌（簡約無印風）。主打大地色、黑白灰高質感精緻生活用品、日本製造餐具和特色小物，大部分只要 330~550 日圓，位於 TOMITON 2 樓。</small>
+            <button class="map-btn" onclick="openMap('Standard Products 豊崎TOMITON店')">🗺️ 一鍵導航</button>
+        </div>
+
+        <div class="card" style="margin-bottom:15px; border-left: 5px solid var(--secondary);">
+            <p style="margin:0 0 5px 0;"><strong>🎈 DAISO 大創百元店 (IIAS 豐崎店)</strong> <span class="price-tag">Day 2 順路</span></p>
+            <small style="color:var(--text-muted); display:block; line-height:1.4;">去 Chura SUN 海灘挖沙前，來這大採購便宜的沙灘水桶組、旅行便攜濕紙巾、防蚊貼片等嬰幼兒好物。用完即丟也不心疼，位於 IIAS 商場 1 樓。</small>
+            <button class="map-btn" onclick="openMap('ダイソー イーアス沖縄豊崎')">🗺️ 一鍵導航</button>
+        </div>
+
+        <div class="shop-cat-header">🐧 24H 與深夜狂歡補貨</div>
+
+        <div class="card" style="margin-bottom:15px; border-left: 5px solid #AF52DE;">
+            <p style="margin:0 0 5px 0;"><strong>🐧 MEGA 唐吉訶德驚安殿堂 (豐見城店)</strong> <span class="price-tag">民宿開車 5 分 (營業至 03:00)</span></p>
+            <small style="color:var(--text-muted); display:block; line-height:1.4;">比起人擠人的國際通店，這家 MEGA 店擁有極寬敞的雙層平面空間、免費大型停車場。建議晚上小寶貝睡了之後，爸媽開車來舒服補齊藥妝、奶粉、沖繩泡麵與伴手禮，出示護照再免稅+折扣！</small>
+            <button class="map-btn" onclick="openMap('MEGAドン・キホーテ豊見城店')">🗺️ 一鍵導航</button>
+        </div>
+    </div>
+
+    <div id="kids-modal" class="modal">
+        <div class="modal-handle"></div>
+        <span class="close-x" onclick="hideModal('kids')">✕</span>
+        <h2 style="color:var(--secondary); margin-bottom: 5px; font-weight: 800;">⚡ 育兒神放電．推車與海灘玩水導航</h2>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:20px;">帶球球與點點無痛戲水、推車友善景點詳細攻略</p>
+        
+        <div class="sos-grid">
+            <div class="card" style="border-left: 6px solid #0A84FF; background: rgba(10, 132, 255, 0.03); grid-column: 1 / -1;">
+                <p style="margin-top:0; font-size:16px;"><strong>🏖️【美麗SUN海灘．2大2小無痛玩水攻略】</strong> <span class="price-tag">Day 2 傍晚 16:30 沖繩夕陽首選</span></p>
+                <div class="guide-box" style="background:#FFF; margin: 5px 0 12px 0;">
+                    <strong>🚗 【停車＆動線指南】停「北側停車場」最省力</strong><br>
+                    請直接導航並停在<b>「北側停車場（North Parking）」</b>！這裡最靠近游泳、玩沙區與中央管理大樓，而且有寬敞平整的無障礙柏油路，雙人推車可以一路順暢推到沙灘旁的遮陽涼亭（東屋），完全不需要扛車！
+                </div>
+                <div class="guide-box" style="background:#FFF; margin: 0 0 12px 0;">
+                    <strong>👶 【神級硬體設施】免冷、熱水、哺乳換尿布超便利</strong><br>
+                    海灘中央的「管理棟」是爸媽的救星：<br>
+                    - <b>冷氣開放哺乳室</b>與幼兒換尿布台，一歲半的點點若有生理需求能優雅解決。<br>
+                    - <b>付費溫水淋浴間</b>（100日圓 / 3分鐘），玩完沙後能快速將球球與點點身上的細沙徹底沖乾淨（記得多帶幾枚100日圓硬幣！）。<br>
+                    - 設有投幣式置物櫃（200日圓），可安全放置大人的隨身衣物。
+                </div>
+                <div class="guide-box" style="background:#FFF; margin: 0 0 12px 0;">
+                    <strong>🛡️ 【防曬與安全】水母防護網與黃金時間</strong><br>
+                    - <b>黃金時間 16:30：</b> 此時太陽斜射，海風涼爽，紫外線威脅大幅減低。<br>
+                    - <b>安全游水區：</b> 海灘設有「防護網（防止ハブクラゲ/箱形水母）」並配有專業救生員。建議讓快 4 歲的球球在安全網內跟爸爸一起在淺灘踩水、踏浪。<br>
+                    - <b>防曬神裝：</b> 7 月底紫外線仍強，務必給球球和點點穿上防曬帽與長袖拉鍊防曬水母衣（防沙又防曬），並多帶一條大浴巾，起風時可直接包住寶寶避免著涼。
+                </div>
+                <div class="guide-box" style="background:#FFF; margin: 0 0 12px 0;">
+                    <strong>🧸 【挖沙與補水】行前補給提示</strong><br>
+                    - <b>挖沙神裝：</b> Day 2 中午在 IIAS 商場的 1F 大創（DAISO）或旁邊 TOMITON 2F 的 Standard Products，花個 300~500 日圓就能買到一套質感超好的挖沙桶與鏟子，球球和點點在沙灘上保證玩到不想走！<br>
+                    - <b>隨時補水：</b> 海灘旁有非常多自動販賣機。天氣熱，記得隨時幫孩子買水或補充電解質飲料（寶礦力），防範中暑。
+                </div>
+                <button class="map-btn" style="width:100%; background:var(--primary); color:#fff; padding: 10px;" onclick="openMap('Chura SUN Beach')">🗺️ 一鍵導航至 美麗SUN海灘 (北側停車場)</button>
+            </div>
+
+            <div class="card" style="border-left: 5px solid var(--primary-light);">
+                <p style="margin:0 0 5px 0;"><strong>【DMM Kariyushi 水族館】🐧</strong></p>
+                <small style="color:var(--text-muted); line-height: 1.5; display:block;">全程冷氣開放、推車極度友善。球球最期待的「觸摸池與近距離互動區」，可以親手觸摸或餵食企鵝、樹懶與水獺！</small>
+                <button class="map-btn" onclick="openMap('DMM Kariyushi Aquarium')">📍 水族館導航</button>
+            </div>
+
+            <div class="card" style="border-left: 5px solid var(--accent);">
+                <p style="margin:0 0 5px 0;"><strong>【沖繩兒童王國 / 動物王國】🦒</strong></p>
+                <small style="color:var(--text-muted); line-height: 1.5; display:block;">融合動物園與兒童博物館。可以觀賞大象洗車、餵食長頸鹿，還有溫和的天竺鼠和小羊觸摸互動區，球球與點點近距離親近小動物放電首選！</small>
+                <button class="map-btn" onclick="openMap('沖繩兒童王國')">📍 動物王國導航</button>
+            </div>
+
+            <div class="card" style="border-left: 5px solid var(--primary);">
+                <p style="margin:0 0 5px 0;"><strong>【永旺來客夢免費大魚缸】🐠</strong></p>
+                <small style="color:var(--text-muted); line-height: 1.5; display:block;">1 樓大廳設有極為壯觀的巨型室內水族箱，可以帶孩子看鯊魚。商場服務台提供「免費Q版汽車造型手推車」，讓球球自己踩著開車，媽媽逛街超輕鬆！</small>
+                <button class="map-btn" onclick="openMap('Aeon Mall Rycom')">📍 開啟商場導航</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="food-modal" class="modal">
+        <div class="modal-handle"></div>
+        <span class="close-x" onclick="hideModal('food')">✕</span>
+        <h2 style="color:#D35400; font-weight: 800;">🍱 沖繩自駕美食總覽</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">本行程精選南區、中區及那霸必吃美食地圖</p>
+        <div id="foodListContainer"></div>
+        <div class="guide-box" style="margin-top:20px; background:rgba(255, 149, 0, 0.05);">
+            💡 <b>自駕小貼士：</b> 沖繩的熱門排隊店（如系滿漁民食堂、EIBUN 蕎麥麵）建議在出發前2週上網預約。若無預訂，現場排隊建議避開高峰或派代表登記！
+        </div>
+    </div>
+
+    <div id="sos-modal" class="modal">
+        <div class="modal-handle"></div>
+        <span class="close-x" onclick="hideModal('sos')">✕</span>
+        <h2 style="color:#FF3B30; margin-bottom: 25px; font-weight: 800;">🆘 沖繩自駕應急 SOS 手冊</h2>
+        <div class="sos-grid">
+            <div class="card" style="border-left: 5px solid #FF3B30;" onclick="copy('098-856-8877')">
+                <p><strong>⚠️ 自駕車禍或故障：</strong><br>
+                1. 保持冷靜，靠邊停並放好三角牌。<br>
+                2. <b>第一時間撥打 110 報警</b>取得車禍證明（否則保險失效）。<br>
+                3. <b>致電 OTS 臨空豐崎救援 (點擊複製號碼)</b>：098-856-8877</p>
+            </div>
+            <div class="card" style="border-left: 5px solid var(--accent);" onclick="copy('098-850-3811')">
+                <p><strong>🏥 寶寶深夜發燒/就醫：</strong><br>
+                民宿附近 24 小時急診醫院（有小兒科）：<br>
+                <b>豐見城中央病院 (點擊複製電話)</b>：098-850-3811</p>
+            </div>
+            <div class="card" onclick="copy('救急車を呼んでください！')">
+                <p style="color:red; margin:0"><strong>🚨 緊急火警/救護車：</strong><br>請幫我叫救護車！<br><small>救急車を呼んでください！ (119通報用)</small></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast">已複製到剪貼簿</div>
+
+    <script>
+        /**
+         * 自定義沖繩美食口袋名單 (提供給 food-modal 自動生成列表)
+         */
+        const foodListData = [
+            { name: "系滿漁民食堂 (Itoman Gyomin Shokudo)", info: "願望名單必吃！在地直送極致鮮美鮮魚料理，現代感裝潢。", dish: "招牌黃油烤鮮魚定食 (魚のバター焼き)", addr: "系満漁民食堂", region: "南區" },
+            { name: "沖繩蕎麥麵 EIBUN", info: "那霸最紅文青蕎麥麵！柴魚昆布高湯清甜，肉質極嫩，點點最愛。", dish: "Bwama 蕎麥麵 (炙軟骨及三枚肉)", addr: "Okinawa Soba Eibun", region: "那霸市區" },
+            { name: "Tacorice cafe Kijimuna (來客夢店)", info: "願望名單！塔可飯始祖，鋪上歐姆蛋的 Omutaco 征服大小朋友！", dish: "滑嫩歐姆蛋塔可飯 (可選不辣)", addr: "Taco Rice Cafe Kijimuna Rycom", region: "中區" },
+            { name: "敘敘苑 (那霸新都心店)", info: "日本頂級高級燒肉！半包廂設計，主動提供極致親子餐具圍兜貼心服務。", dish: "上等牛五花拼盤", addr: "叙々苑 沖縄おもろまち店", region: "那霸市區" },
+            { name: "目利きの銀次 (新都心店)", info: "超吸睛巨型木桶外觀創意居酒屋！產地直送箱裝生魚片超平價奢華。", dish: "產地直送箱裝生魚片", addr: "目利きの銀次 新都心店", region: "那霸市區" },
+            { name: "鐵板燒 碧 (heka 國際通松尾店)", info: "高級鐵板燒，全店女性主廚！對帶孩子非常有耐心，鐵板火焰秀像看特技。", dish: "沖繩黑毛和牛沙朗牛排", addr: "鉄板焼 碧 國際通松尾店", region: "那霸市區" }
+        ];
+
+        let currentDay = 1; // 記錄目前使用者正在查看的 Day
+
+        /**
+         * 每日行程結構資料 (JSON Format)
+         */
+        const tripData = {
+            1: {
+                title: "晚班機抵達．輕鬆入住",
+                nodes: [
+                    { time: "18:30", title: "桃園機場起飛 (虎航 IT232)", stay: "N/A", guide: "【啟程】2大2小自駕之旅正式起飛！確認帶好護照、駕照及日文譯本。" },
+                    { 
+                        trans: [
+                            { type: "✈️", text: "<b>台灣虎航 IT232</b><br>18:30 起飛 -> 20:50 抵達沖繩那霸機場。出關後帶著孩子直接搭計程車前往民宿。", addr: "那霸機場" }
+                        ]
+                    },
+                    { time: "21:30", title: "入文明宿「TerraceRin」🏡", addr: "TerraceRin Airbnb, Tomigusuku", stay: "N/A", guide: "【民宿】位於豐見城市。辦理自助入住，安頓行李讓球球與點點好好洗澡睡覺，預備體力。" },
+                    { time: "22:00", title: "晚餐/深夜大補帖推薦", isDining: true, options: [
+                        { name: "A&W 豐崎店", info: "首選：沖繩限定美式速食！距離民宿超近，快速打包起司牛肉堡與圈圈薯條回民宿大快朵頤。", dish: "A&W 雙層起司牛肉堡 / 圈圈薯條", addr: "A&W 豊崎店", isPrimary: true },
+                        { name: "日本超商大點名 (Lawson/FamilyMart)", info: "備案 B：帶倦意孩子最推！直接超商外帶炸雞、法式蛋沙拉三明治及紅豆麵包，放鬆無壓力。", dish: "FamiChiki 炸雞 / 蛋沙拉三明治", addr: "FamilyMart Tomigusuku", isPrimary: false },
+                        { name: "Joyfull 豐見城店", info: "備案 C：24小時日式連鎖家庭餐廳。提供舒適大沙發座及豐富「兒童專屬餐單」，吃熱騰騰白飯首選。", dish: "雙層起司漢堡排定食 / 兒童蛋包飯", addr: "Joyfull 豊見城店", isPrimary: false }
+                    ]}
+                ]
+            },
+            2: {
+                title: "冷氣水族館 ➔ Outlet逛街 ➔ 傍晚消暑玩水",
+                nodes: [
+                    { time: "08:30", title: "爸爸獨自前往 OTS 取車 🚗", addr: "OTS Rent-a-car Rinku Toyosaki", stay: "30min", guide: "【爸爸分兵】一早由爸爸一個人前往臨空豐崎營業所取車。<b>現場務必點交確認 1 個兒童安全座椅與 1 個嬰兒安全座椅！</b>" },
+                    { time: "09:15", title: "開車回民宿接媽媽與寶貝 🏡", addr: "197 Yone TerraceRin, Tomigusuku", stay: "15min", guide: "【全家集結】爸爸開車回民宿載老婆、球球與點點，全家上車吹冷氣，直接出發前往 DMM 水族館！" },
+                    { time: "09:45", title: "DMM Kariyushi 水族館 🐧", addr: "DMM Kariyushi Aquarium", stay: "2.5hr", guide: "【冷氣放電】進館看熱帶魚，去互動區觸摸和親手餵食企鵝與水獺。館內推車友善，非常消暑舒適。" },
+                    { time: "12:00", title: "午餐：IIAS 豐崎商場內用餐", isDining: true, options: [
+                        { name: "牛排屋 88Jr. (IIAS店)", info: "首選：平價牛排，排餐附咖哩飯、濃湯吃到飽。點點分食高湯非常方便！", dish: "Jr. 特選沙朗牛排 / 兒童漢堡排套餐", addr: "牛排屋 88Jr. IIAS 沖繩豐崎", isPrimary: true },
+                        { name: "丸龜製麵 / 樂庵烏龍麵", info: "備案 B：柴魚高湯烏龍麵剪碎，最適合 1.5 歲點點，爸媽最省心。", dish: "豆皮烏龍麵 / 炸蝦天婦羅", addr: "IIAS 沖繩豐崎 美食街", isPrimary: false },
+                        { name: "A&W IIAS美食街店", info: "備案 C：沖繩限定美式速食，起司漢堡搭圈圈薯條快速解決。", dish: "A&W 摩茲漢堡 / 麥根沙士", addr: "IIAS 沖繩豐崎 A&W", isPrimary: false }
+                    ]},
+                    { time: "13:30", title: "動態逛街：IIAS 豐崎 & Outlet Mall 🛍️", addr: "沖繩 Outlet Mall Ashibinaa", stay: "3hr", guide: "【避暑補貨】在 IIAS 與相鄰的 Ashibinaa Outlet 愜意逛街。讓小寶貝們在推車上吹冷氣舒服午睡 💤，順便在 Standard Products 或大創採買傍晚沙灘玩水用的挖沙工具或消暑用品。" },
+                    { time: "16:30", title: "美麗SUN海灘 (Chura SUN Beach) 🏖️", addr: "Chura SUN Beach", stay: "2hr", guide: "【黃昏戲水】太陽西斜沒那麼炙熱，換上泳裝帶兩個女兒踩沙、踏浪、玩水，享受夕陽美景！" },
+                    { time: "18:45", title: "晚餐：系滿漁民食堂 ✨您的願望必吃", isDining: true, options: [
+                        { name: "系滿漁民食堂 (Itoman Gyomin Shokudo)", info: "首選：離海灘車程僅 8 分鐘！大推招牌黃油烤鮮魚定食，玩水後大補充大人小孩體力！", dish: "招牌黃油烤鮮魚定食 / 鮮魚汁定食", addr: "系満漁民食堂", isPrimary: true },
+                        { name: "燒肉きんぐ (豐見城店)", info: "備案 B：超人氣燒肉吃到飽！平板點餐、機器人送餐，提供小魚糕、冷烏龍等寶寶副食。", dish: "名物厚切牛五花 / 壺漬生薑豬肉", addr: "焼肉きんぐ 豊見城店", isPrimary: false },
+                        { name: "豬排太郎 (豐見城店)", info: "備案 C：高檔熟成豬排肉質極嫩，筷子可夾斷。點點輕鬆乳化咀嚼，白飯高麗菜無限續。", dish: "熟成里肌豬排定食 / 大海老雙拼定食", addr: "とんかつ太郎 豊見城店", isPrimary: false }
+                    ]}
+                ]
+            },
+            3: {
+                title: "親近動物 ➔ 來客夢逛街 ➔ 彈性母嬰補貨",
+                nodes: [
+                    { time: "09:30", title: "沖繩動物王國 (兒童王國) 🐘", addr: "沖繩兒童王國", stay: "2.5hr", guide: "【戶外放電】早上一開園去最涼爽！近距離看長頸鹿、大象，還有可以撫摸天竺鼠與小羊的互動區。" },
+                    { time: "12:00", title: "午餐：海族工房 (兒童王國旁) 🍜", addr: "海族工房 沖繩兒童王國", stay: "1hr", guide: "【免移車帶娃】位於動物王國外。中午直接在這裡吃熱騰騰拉麵與簡餐，免去大包小包移車、找車位的狼狽，對親子家庭最方便！" },
+                    { 
+                        trans: [
+                            { type: "🚗", text: "<b>自駕前往中區商場</b><br>午餐後全家上車，前往沖繩最大一站式巨型購物中心，車程僅約 10 分鐘，寶寶可在車上小瞇一下。", addr: "AEON Mall Rycom" }
+                        ]
+                    },
+                    { time: "13:30", title: "永旺夢樂城沖繩來客夢 (Rycom) 🛍️", addr: "AEON Mall Rycom", stay: "3hr", guide: "【一站式避暑】1樓大魚缸、車子造型手推車。聚集 3 Coins, Workman Girl, 寶可夢中心、吉卜力橡子共和國，全家吹冷氣避暑大血拼！" },
+                    { time: "16:30", title: "彈性作戰：提早休息 / Birthday 補貨 👶", stay: "1.5hr", guide: "【配合寶貝作息】若球球和點點累了，在此安排提早撤退。<br><b>方案 A：開車前往 Birthday 港川店</b> 橫掃平價高質感日系童裝；<br><b>方案 B：直接返回豐見城民宿休息</b>，並在民宿附近放鬆吃晚餐，彈性最大、完全無壓力。" },
+                    { time: "18:00", title: "晚餐：南區/民宿附近放鬆用餐", isDining: true, options: [
+                        { name: "Joyfull 豐見城店", info: "首選：民宿附近24小時日式家庭餐廳！提供舒適沙發座與豐富「兒童餐單」，大人吃漢堡排，點點吃溫熱白飯與蒸蛋。", dish: "雙層起司漢堡排定食 / 兒童餐", addr: "Joyfull 豊見城店", isPrimary: true },
+                        { name: "日本超商深夜大點名 (Lawson/FamilyMart)", info: "備案 B：若孩子累了想早點睡。直接去超商外帶炸雞、法式蛋沙拉三明治，在民宿輕鬆解決，爸媽最放鬆。", dish: "FamiChiki 炸雞 / 蛋沙拉三明治", addr: "FamilyMart Tomigusuku", isPrimary: false },
+                        { name: "A&W 豐崎店", info: "備案 C：超近民宿！美式速食，打包牛肉堡與薯條回房間吃，完全沒有帶娃在餐廳吵鬧的壓力。", dish: "A&W 雙層起司牛肉堡 / 圈圈薯條", addr: "A&W 豊崎店", isPrimary: false }
+                    ]}
+                ]
+            },
+            4: {
+                title: "水中玻璃船 ➔ 伴手禮 ➔ 離島天婦羅",
+                nodes: [
+                    { time: "10:15", title: "ORCA 水中觀光船 🚢", addr: "那覇ふ頭船客待合所", stay: "1hr", guide: "【海上巡禮】09:15 民宿出發。早上海象平穩，透過特製玻璃船底，不濕身帶點點與球球看超清晰珊瑚礁與熱帶魚！" },
+                    { time: "11:30", title: "午餐：那霸市區/世豐商店周邊", isDining: true, options: [
+                        { name: "沖繩蕎麥麵 EIBUN", info: "首選：壺屋通旁、最紅文青蕎麥麵！柴魚昆布湯頭清甜完全不油膩，炙軟骨嫩到入口即化，點點寶寶最安心麵食。", dish: "Bwama 蕎麥麵 (一次享有炙軟骨與三枚肉)", addr: "Okinawa Soba Eibun", isPrimary: true },
+                        { name: "第一牧志公設市場 2F 餐廳", info: "備案 B：距離世豊商店步行 3 分鐘。冷氣開放，可點炒苦瓜、道地琉球料理，或 1F 買海鮮代客料理看奇特魚類。", dish: "沖繩風苦瓜什錦炒 / 奶油蒜香大龍蝦", addr: "第一牧志公設市場", isPrimary: false },
+                        { name: "暖暮拉麵 (那霸牧志店)", info: "備案 C：台灣人心中不敗首選。濃郁豚骨湯頭可客製化選擇「不辣/麵條偏軟」，完全迎合小朋友愛吃麵習慣。", dish: "特製芝麻蔥花豚骨拉麵 / 一口餃子", addr: "暖暮 那覇 牧志店", isPrimary: false }
+                    ]},
+                    { time: "13:00", title: "世豊商店狂掃 🛍️ (戰術實行！)", addr: "世豊商店", stay: "1.2hr", guide: "【伴手禮採購】阿姨親切會講台語。<b>爸爸帶球球與點點在店外看大石獅子拍照</b>，媽媽開啟「戰鬥模式」瘋狂掃貨雪肌粹、零食與辣油！" },
+                    { time: "14:30", title: "沖繩媳婦採購特產 🏵️", addr: "沖繩媳婦", stay: "45min", guide: "【伴手禮採購】找熱情的媳婦買最新、限定款零嘴點心與特色精美飾品、沖繩限定特產。" },
+                    { time: "15:30", title: "下午彈性時光 (方案 A 或 B) 🏖️", stay: "2hr", guide: "<b>方案 A（跳島天婦羅）</b>：驅車衝奧武島吃「中本鮮魚店」天婦羅，橋下溫柔淺灘踩水、找寄居蟹、看島上貓咪。<br><b>方案 B（二刷海灘/母嬰血拼）</b>：可去美麗SUN海灘（就在民宿旁，非常順路），或者帶球球和點點開車去 <b>Birthday 港川店</b> 補貨寶寶衣服與鞋子！" },
+                    { time: "18:00", title: "晚餐：畢業慶祝最終大餐", isDining: true, options: [
+                        { name: "敘敘苑 (那霸新都心店)", info: "首選：日本高級燒肉代名詞，環境極致親子友善，主動提供高品質兒童椅、全套圍兜與餐具。優雅享受頂級燒肉！", dish: "上等牛五花拼盤 / 嚴選牛舌 / 特製沙拉", addr: "叙々苑 沖縄おもろまち店", isPrimary: true },
+                        { name: "目利きの銀次 (新都心店)", info: "備案 B：超狂木桶外觀！氣氛熱鬧，孩子發出一點聲音也免尷尬。產地直送生魚片破盤價必點，大飽口福！", dish: "產地直送箱裝生魚片 / 海膽醬烤牡蠣", addr: "目利きの銀次 新都心店", isPrimary: false },
+                        { name: "鐵板燒 碧 ( heka 國際通松尾店)", info: "備案 C：全店皆由女性主廚掌廚！手法細膩對孩子極具耐心。孩子在前台看華麗帥氣鐵板火焰秀就像在看精彩表演！", dish: "沖繩黑毛和牛沙朗牛排 / 鐵板乾煎久米島車海老", addr: "鉄板焼 碧 國際通松尾店", isPrimary: false }
+                    ]}
+                ]
+            },
+            5: {
+                title: "安全歸國，期待下次出發 ✈️",
+                nodes: [
+                    { time: "07:15", title: "民宿退房 ➔ 爸爸先送家人至機場 🚗", addr: "那霸機場", stay: "30min", guide: "【爸爸神隊友分兵】全家退房並將重行李裝車。由爸爸開車送老婆、球球、點點直奔那霸機場航廈。<b>媽媽帶兩個孩子先在航廈推車處休息，免去帶孩子提重行李與等接駁車的疲累！</b>" },
+                    { time: "08:00", title: "爸爸獨自前往 OTS 辦理還車 🚗", addr: "OTS Rent-a-car Rinku Toyosaki", stay: "30min", guide: "【快速還車】爸爸獨自開車返回 OTS 臨空豐崎營業所，免帶小孩和行李，辦理還車手續與加油最快速省時！" },
+                    {
+                        trans: [
+                            { type: "🚌", text: "<b>OTS 免費接駁巴士 (或計程車)</b><br>還車完成後，爸爸在 08:30 前搭乘 OTS 航廈接駁車（或直接搭計程車，車程約 15 分鐘）直奔那霸機場會合。", addr: "那霸機場" }
+                        ]
+                    },
+                    { time: "08:50", title: "機場會合 ➔ 辦理登機 🛄", addr: "那霸機場", stay: "1hr", guide: "爸爸與家人在虎航櫃台會合（起飛前 2 小時開櫃），順利托運行李並通關。起飛前還能在機場免稅店進行最後的名產補貨！" },
+                    { time: "10:10", title: "那霸機場起飛 (虎航 IT231) 🛫", stay: "N/A", guide: "10:10 飛往台北 -> 10:40 順利返抵桃園機場，結束精彩充實的 5 天 4 夜自駕回憶！" }
+                ]
+            }
+        };
+
+        /**
+         * 核心渲染函式：動態產生對應天數的 HTML
+         */
+        function render(day) {
+            currentDay = day;
+            
+            // 1. 更新天數導航按鈕的 active 狀態
+            const btns = document.querySelectorAll('.day-nav button');
+            btns.forEach((b, i) => b.className = (i + 1 === day ? 'active' : ''));
+
+            // 2. 渲染每日主標題
+            const titleContainer = document.getElementById('dayTitleContainer');
+            titleContainer.innerHTML = `<h2 class="day-main-title">Day ${day} | ${tripData[day].title}</h2>`;
+
+            const container = document.getElementById('timelineContent');
+            let html = ``;
+            
+            // 3. 遍歷節點產生 HTML
+            tripData[day].nodes.forEach(n => {
+                if (n.trans) {
+                    html += `<div class="trans-divider">
+                        <div class="trans-card">
+                            ${n.trans.map(t => `
+                                <div class="trans-row">
+                                    <div class="trans-icon">${t.type}</div>
+                                    <div class="trans-text">
+                                        ${t.text}
+                                        <br><button class="map-btn" onclick="openMap('${t.addr}')">🗺️ 導航</button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                } else if (n.isDining) {
+                    html += `
+                    <div class="timeline-node">
+                        <div class="node-dot" style="border-color:var(--accent); box-shadow: 0 0 0 4px rgba(255, 149, 0, 0.2);"></div>
+                        <span class="node-time">🍴 沖繩精選親子餐單 (首選與即時備案)</span>
+                        <div class="dining-wrap">
+                            ${n.options.map(o => `
+                                <div class="dining-card ${o.isPrimary ? 'primary-choice' : ''}">
+                                    ${o.isPrimary ? '<div class="primary-tag">★ 本日推薦首選</div>' : '<div class="backup-tag">⚡ 備案選項</div>'}
+                                    <strong>${o.name}</strong><br><small style="color:#555">${o.info}</small>
+                                    <div style="display:flex; gap:5px; margin-top:8px;">
+                                        <button class="map-btn" style="flex:1;" onclick="openMap('${o.addr || o.name}')">🗺️ 地圖</button>
+                                        <button class="map-btn" style="flex:1; background:rgba(0,0,0,0.04); color:#555;" onclick="googleSearch('${o.name}')">🔍 搜尋</button>
+                                    </div>
+                                    <div class="menu-pill" style="${o.isPrimary ? 'background:var(--accent); color:#fff;' : ''}">✨ 必吃：${o.dish}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                } else {
+                    html += `
+                    <div class="timeline-node">
+                        <div class="node-dot"></div>
+                        <span class="node-time">${n.time}</span>
+                        <div class="card">
+                            <div style="font-weight:bold; font-size:16px;">${n.title}</div>
+                            ${n.guide ? `<div class="guide-box">${n.guide}</div>` : ''}
+                            <div style="display:flex; gap:8px;">
+                                ${n.addr ? `<button class="map-btn" style="flex:1;" onclick="openMap('${n.addr}')">🗺️ 地圖</button>` : ''}
+                                <button class="map-btn" style="flex:1; background:rgba(0,0,0,0.04); color:#555;" onclick="googleSearch('${n.title}')">🔍 搜尋</button>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+            });
+
+            // 4. 自動加上每天最後回民宿的歸巢節點
+            if (day < 5) {
+                html += `
+                <div class="timeline-node" style="margin-top:20px;">
+                    <div class="node-dot" style="border-color:#ccc; background:#ccc; box-shadow:none;"></div>
+                    <span class="node-time">🛌 結束行程回民宿</span>
+                    <div class="card" style="background:rgba(255,255,255,0.4);">
+                        <div style="font-weight:bold; font-size:16px;">🏠 TerraceRin Airbnb</div>
+                        <button class="map-btn" style="width:100%" onclick="openMap('197 Yone TerraceRin, Tomigusuku-shi, Okinawa-ken 901-0224')">🗺️ 帶我們回民宿</button>
+                    </div>
+                </div>`;
+            }
+
+            container.innerHTML = html;
+            
+            // 觸發 Apple 物理絲滑轉場動畫
+            container.classList.remove('fade-slide-in');
+            void container.offsetWidth; // 強制重繪觸發動畫
+            container.classList.add('fade-slide-in');
+
+            window.scrollTo(0, 0); 
+
+            // =========================================
+            // 5. 智慧日期自動捲動與標記定位
+            // =========================================
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1;
+            const currentDate = now.getDate();
+            
+            // 是否在 2026/7/24 ~ 7/28 旅程內
+            const isActualTravelPeriod = (currentYear === 2026 && currentMonth === 7 && currentDate >= 24 && currentDate <= 28);
+            
+            const currentHour = now.getHours();
+            const currentMin = now.getMinutes();
+            const currentTimeVal = currentHour * 60 + currentMin;
+
+            let closestNode = null;
+            let minDiff = Infinity;
+
+            if (isActualTravelPeriod) {
+                document.querySelectorAll('.timeline-node').forEach(node => {
+                    const timeText = node.querySelector('.node-time')?.innerText;
+                    if (timeText && timeText.includes(':')) {
+                        const timeMatch = timeText.match(/(\d{1,2}):(\d{2})/);
+                        if (timeMatch) {
+                            const h = parseInt(timeMatch[1]);
+                            const m = parseInt(timeMatch[2]);
+                            const nodeTimeVal = h * 60 + m;
+                            const diff = Math.abs(currentTimeVal - nodeTimeVal);
+
+                            if (diff < minDiff) {
+                                minDiff = diff;
+                                closestNode = node;
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (isActualTravelPeriod && closestNode && day === getSmartDay()) {
+                setTimeout(() => {
+                    closestNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    const card = closestNode.querySelector('.card');
+                    if (card) {
+                        card.style.transition = "all 0.6s cubic-bezier(0.16, 1, 0.3, 1)";
+                        card.style.border = "2.5px solid var(--primary)";
+                        card.style.boxShadow = "0 10px 30px rgba(10, 132, 255, 0.25)";
+                    }
+                }, 600);
+            }
+        }
+
+        /**
+         * 系統核心工具
+         */
+
+        // 複製文字並喚起 iOS Style Toast 提示
+        function copy(t) {
+            if (!t) return;
+            navigator.clipboard.writeText(t);
+            const toast = document.getElementById('toast');
+            toast.innerText = "已複製到剪貼簿 📋";
+            toast.className = "show";
+            setTimeout(() => toast.className = "", 2000);
+        }
+
+        // 修正 Google Maps 的標準 URL 架構，確保不論 iOS/Android 皆可安全跳轉 Google Map APP 並精準定位商家
+        function openMap(addr) {
+            if (!addr) return;
+            const url = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(addr);
+            window.open(url, '_blank');
+        }
+
+        // 開啟 Google 搜尋
+        function googleSearch(query) {
+            if (!query) return;
+            const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+            window.open(url, '_blank');
+        }
+
+        // 顯示 Modal Drawer (底部拉起 Sheet 動畫)
+        function showModal(id) {
+            if (id === 'food') {
+                updateFoodModal();
+            }
+            const modal = document.getElementById(id + '-modal');
+            modal.style.display = 'block';
+            setTimeout(() => modal.classList.add('active'), 10);
+        }
+
+        // 隱藏 Modal Drawer (滑動或點選關閉)
+        function hideModal(id) { 
+            const modal = document.getElementById(id + '-modal');
+            modal.classList.remove('active');
+            setTimeout(() => modal.style.display = 'none', 400); // 等待動畫完成再隱藏
+        }
+
+        /**
+         * 沖繩美食總覽：自動從口袋名單及 tripData 提取所有餐廳
+         */
+        function updateFoodModal() {
+            const container = document.getElementById('foodListContainer');
+            let allRestaurants = [];
+
+            foodListData.forEach(r => { allRestaurants.push({ ...r }); });
+
+            Object.keys(tripData).forEach(dayNum => {
+                const day = tripData[dayNum];
+                const autoRegion = (parseInt(dayNum) === 3) ? "中區" : ((parseInt(dayNum) === 4) ? "那霸市區" : "南區");
+                
+                day.nodes.forEach(node => {
+                    if (node.isDining && node.options) {
+                        node.options.forEach(opt => {
+                            allRestaurants.push({ ...opt, region: autoRegion });
+                        });
+                    }
+                });
+            });
+
+            const uniqueRestaurants = allRestaurants.filter((v, i, a) => a.findIndex(t => (t.name === v.name)) === i);
+
+            container.innerHTML = uniqueRestaurants.map(r => {
+                const isCentral = r.region === "中區";
+                const isNaha = r.region === "那霸市區";
+                const regionClass = isCentral ? "card-central" : (isNaha ? "card-naha" : "card-south");
+                const badgeClass = isCentral ? "badge-central" : (isNaha ? "badge-naha" : "badge-south");
+
+                return `
+                    <div class="card ${regionClass}" style="margin-bottom: 15px;">
+                        <div class="region-badge ${badgeClass}">${r.region}</div>
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <div>
+                                <strong style="font-size:15px; display:block; margin-bottom:4px;">${r.name}</strong>
+                                <small style="color:var(--text-muted); line-height:1.4; display:block;">${r.info}</small>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px; margin-top:10px;">
+                            <button class="map-btn" style="flex:1; margin:0;" onclick="openMap('${r.addr || r.name}')">🗺️ 導航</button>
+                            <button class="map-btn" style="flex:1; margin:0; background:rgba(0,0,0,0.04); color:#555;" onclick="googleSearch('${r.name}')">🔍 搜尋資訊</button>
+                        </div>
+                        <div class="menu-pill" style="margin-top:10px;">✨ 必吃：${r.dish}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // =========================================
+        // 手勢操控系統 (滑動切換與 iOS Sheet 下拉關閉)
+        // =========================================
+        
+        /* 左右滑動切換天數 */
+        let touchstartX = 0;
+        let touchendX = 0;
+        const swipeThreshold = 100;
+
+        document.addEventListener('touchstart', e => {
+            touchstartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        document.addEventListener('touchend', e => {
+            touchendX = e.changedTouches[0].screenX;
+            handleSwipe(e);
+        }, { passive: true });
+
+        function handleSwipe(e) {
+            const isScrollingContent = e.target.closest('.day-nav, .dining-wrap, .modal');
+            if (isScrollingContent) return;
+
+            const deltaX = touchendX - touchstartX;
+
+            if (deltaX < -swipeThreshold && currentDay < 5) {
+                const nextDay = currentDay + 1;
+                render(nextDay);
+                showSwipeToast(`切換至 Day ${nextDay} ➔`);
+            } else if (deltaX > swipeThreshold && currentDay > 1) {
+                const prevDay = currentDay - 1;
+                render(prevDay);
+                showSwipeToast(`⇠ 返回 Day ${prevDay}`);
+            }
+        }
+
+        function showSwipeToast(msg) {
+            const toast = document.getElementById('toast');
+            if (toast) {
+                toast.innerText = msg;
+                toast.className = "show";
+                setTimeout(() => toast.className = "", 1000);
+            }
+        }
+
+        /* iOS Modal 向下滑動關閉手勢 */
+        let modalStartY = 0;
+
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('touchstart', e => {
+                modalStartY = e.touches[0].clientY;
+            }, { passive: true });
+
+            modal.addEventListener('touchend', e => {
+                const modalEndY = e.changedTouches[0].clientY;
+                const diffY = modalEndY - modalStartY;
+
+                // 下拉超過 150px 自動流暢關閉
+                if (diffY > 150) {
+                    const modalId = modal.id.replace('-modal', '');
+                    hideModal(modalId);
+                }
+            }, { passive: true });
+        });
+
+        // =========================================
+        // 智慧自適應日期引擎 (Smart Day Engine)
+        // =========================================
+        function getSmartDay() {
+            const now = new Date();
+            const month = now.getMonth() + 1;
+            const date = now.getDate();
+            const year = now.getFullYear();
+
+            // 針對 2026/07 行程自動分配預設顯示天數
+            if (year === 2026 && month === 7) {
+                if (date <= 24) return 1;
+                if (date === 25) return 2;
+                if (date === 26) return 3;
+                if (date === 27) return 4;
+                if (date >= 28) return 5; 
+            }
+            return 1; // 預設第一天
+        }
+
+        // 初始化系統
+        const targetDay = getSmartDay();
+        render(targetDay);
+
+    </script>
+</body>
+</html>
