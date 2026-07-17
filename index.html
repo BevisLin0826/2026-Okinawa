@@ -529,6 +529,29 @@
 </head>
 <body>
 
+<a href="https://www.vjw.digital.go.jp/" target="_blank" style="
+    position: fixed;
+    top: 60px; 
+    right: 15px;
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    z-index: 99999;
+    border: 2px solid rgba(255,255,255,0.9);
+    transition: transform 0.2s;
+" ontouchstart="this.style.transform='scale(0.95)'" ontouchend="this.style.transform='scale(1)'">
+    <span style="font-size: 12px; font-weight: 800; letter-spacing: -0.5px; line-height: 1;">JPN</span>
+    <span style="font-size: 9px; font-weight: 700; opacity: 0.9; margin-top: 2px;">VJW</span>
+</a>
+
     <div class="mac-window">
         <div class="mac-dots">
             <span class="mac-dot red"></span>
@@ -588,7 +611,22 @@
     </div>
 
     <div id="housing-modal" class="modal" style="top: 45px;">
-        <div class="modal-handle"></div>
+        <div class="card" style="margin-bottom: 15px; background: rgba(243, 156, 18, 0.08); border-left: 5px solid #f39c12; padding: 12px;">
+            <strong style="color:#d35400; font-size:14px; display:block; margin-bottom:8px;">🚕 叫車貼上專用（點擊即複製日文）</strong>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #fff; padding: 8px 10px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" 
+                 onclick="copy('那覇空港国際線旅客ターミナルビル')">
+                <span style="font-size: 13px; color: var(--text-dark);">✈️ 那霸機場 (國際線航廈)</span>
+                <span style="font-size: 11px; background: #f39c12; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;">📋 複製</span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 8px 10px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" 
+                 onclick="copy('OTSレンタカー臨空豊崎営業所')">
+                <span style="font-size: 13px; color: var(--text-dark);">🚗 OTS 租車 (臨空豐崎)</span>
+                <span style="font-size: 11px; background: #f39c12; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;">📋 複製</span>
+            </div>
+        </div>
+	<div class="modal-handle"></div>
         <span class="close-x" onclick="hideModal('housing')">✕</span>
         <h2 style="color:var(--primary); margin-bottom: 5px; font-weight: 800;">🚗 住宿、租車與自駕停車專區</h2>
         <p style="font-size:12px; color:var(--text-muted); margin-bottom:20px;">林家專屬：民宿資訊、還車流與每日景點精準停車指南</p>
